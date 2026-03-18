@@ -64,7 +64,7 @@ export function LanguageProvider({
     // lazy initialize from localStorage so we don't trigger an effect warning
     const [locale, setLocaleState] = useState<Locale>(() => {
         if (typeof window !== "undefined") {
-            const saved = localStorage.getItem("lang");
+            const saved = sessionStorage.getItem("lang");
             if (saved) {
                 return saved;
             }
@@ -75,9 +75,13 @@ export function LanguageProvider({
     const [availableLocales, setAvailableLocales] = useState<Locale[]>(() => {
         const base = ["en", "hi"];
         if (typeof window !== "undefined") {
-            const saved = localStorage.getItem("lang");
+            const saved = sessionStorage.getItem("lang");
             if (saved && !base.includes(saved)) {
                 base.push(saved);
+            }
+            const detected = sessionStorage.getItem("detected_lang");
+            if (detected && !base.includes(detected)) {
+                base.push(detected);
             }
         }
         return base;
@@ -86,6 +90,11 @@ export function LanguageProvider({
     const addAvailableLocale = (l: Locale) => {
         setAvailableLocales(prev => {
             if (!prev.includes(l)) {
+                try {
+                    sessionStorage.setItem("detected_lang", l);
+                } catch {
+                    // ignore
+                }
                 return [...prev, l];
             }
             return prev;
@@ -95,7 +104,7 @@ export function LanguageProvider({
     const setLocale = (l: Locale) => {
         setLocaleState(l);
         try {
-            localStorage.setItem("lang", l);
+            sessionStorage.setItem("lang", l);
         } catch {
             // ignore
         }

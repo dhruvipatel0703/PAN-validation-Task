@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
 import { SpinnerCustom } from "@/components/ui/spinner";
-import { useLanguage, LANGUAGE_NAMES } from "@/context/LanguageContext";
+import { LANGUAGE_NAMES, useLanguage } from "@/context/LanguageContext";
+import { useEffect, useState } from "react";
 
 function detectLanguageFromCoords(lat: number, lon: number) {
-    // Rough bounding boxes to map coords to regional Indian languages
     if (lat >= 20 && lat <= 25 && lon >= 68 && lon <= 74) return "gu"; // Gujarat
     if (lat >= 16 && lat <= 22 && lon >= 73 && lon <= 80) return "mr"; // Maharashtra
     if (lat >= 11 && lat <= 18 && lon >= 74 && lon <= 78) return "kn"; // Karnataka
@@ -20,46 +19,49 @@ function detectLanguageFromCoords(lat: number, lon: number) {
 
 export default function GeoPrompt() {
     const { setLocale, t, addAvailableLocale } = useLanguage();
-    const [phase, setPhase] = useState<"prompt" | "denied" | "checking" | "select" | "done">(() => {
-        if (typeof window !== "undefined") {
-            const saved = localStorage.getItem("lang");
-            const seen = localStorage.getItem("geoprompt_seen");
-            if (saved || seen === "true") {
-                return "done";
-            }
-        }
-        return "prompt";
-    });
+    const [phase, setPhase] = useState<"prompt" | "denied" | "checking" | "select" | "done">("prompt");
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        if (typeof window !== "undefined") {
+        setMounted(true);
+        try {
+            const seen = sessionStorage.getItem("geoprompt_seen");
+            if (seen === "true") {
+                setPhase("done");
+            }
+        } catch {
+            // ignore
+        }
+    }, []);
+
+    useEffect(() => {
+        if (mounted && phase === "prompt") {
             try {
-                localStorage.setItem("geoprompt_seen", "true");
+                const timer = setTimeout(() => {
+                    sessionStorage.setItem("geoprompt_seen", "true");
+                }, 500);
+                return () => clearTimeout(timer);
             } catch {
                 // ignore
             }
         }
-    }, []);
+    }, [mounted, phase]);
     const [detected, setDetected] = useState<string | null>(null);
 
     const askLocation = () => {
-        console.log("Ask location clicked");
         if (!navigator?.geolocation) {
-            console.log("Geolocation not available");
             setPhase("denied");
             return;
         }
         setPhase("checking");
         navigator.geolocation.getCurrentPosition(
             (pos) => {
-                console.log("Got position:", pos.coords);
                 const d = detectLanguageFromCoords(pos.coords.latitude, pos.coords.longitude);
                 setDetected(d);
                 addAvailableLocale(d);
                 setTimeout(() => setPhase("select"), 700);
             },
             (err) => {
-                console.log("Geolocation error:", err);
                 setPhase("denied");
             },
             { timeout: 10000 }
@@ -70,14 +72,14 @@ export default function GeoPrompt() {
         console.log("Choosing language:", l);
         setLocale(l);
         try {
-            localStorage.setItem("lang", l);
+            sessionStorage.setItem("lang", l);
         } catch {
             // ignore
         }
         setPhase("done");
     };
 
-    if (phase === "done") return null;
+    if (!mounted || phase === "done") return null;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
