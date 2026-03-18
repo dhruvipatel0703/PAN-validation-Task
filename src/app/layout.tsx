@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import GeoPrompt from "@/components/GeoPrompt";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,7 +34,7 @@ export default function RootLayout({
         {/* language context is client-only, the provider can be inserted inside */}
         <LanguageProvider>
           <Header />
-          {/* <GeoPrompt /> */}
+          <GeoPrompt />
           {children}
           <Toaster />
         </LanguageProvider>

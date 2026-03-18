@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SpinnerCustom } from "@/components/ui/spinner";
-import { useLanguage } from "@/context/LanguageContext";
+import { useLanguage, LANGUAGE_NAMES } from "@/context/LanguageContext";
 
 function detectLanguageFromCoords(lat: number, lon: number) {
     // Rough bounding boxes to map coords to regional Indian languages
@@ -18,33 +18,28 @@ function detectLanguageFromCoords(lat: number, lon: number) {
     return "en";
 }
 
-function prettyName(code: string) {
-    const names: Record<string, string> = {
-        en: "English",
-        hi: "हिंदी",
-        gu: "ગુજરાતી (gu)",
-        mr: "मराठी (mr)",
-        kn: "ಕನ್ನಡ (kn)",
-        ta: "தமிழ் (ta)",
-        ml: "മലയാളം (ml)",
-        te: "తెలుగు (te)",
-        bn: "বাংলা (bn)",
-        pa: "ਪੰਜਾਬੀ (pa)",
-    };
-    return names[code] || code;
-}
-
 export default function GeoPrompt() {
-    const { setLocale, t } = useLanguage();
+    const { setLocale, t, addAvailableLocale } = useLanguage();
     const [phase, setPhase] = useState<"prompt" | "denied" | "checking" | "select" | "done">(() => {
         if (typeof window !== "undefined") {
             const saved = localStorage.getItem("lang");
-            if (saved) {
+            const seen = localStorage.getItem("geoprompt_seen");
+            if (saved || seen === "true") {
                 return "done";
             }
         }
         return "prompt";
     });
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            try {
+                localStorage.setItem("geoprompt_seen", "true");
+            } catch {
+                // ignore
+            }
+        }
+    }, []);
     const [detected, setDetected] = useState<string | null>(null);
 
     const askLocation = () => {
@@ -60,6 +55,7 @@ export default function GeoPrompt() {
                 console.log("Got position:", pos.coords);
                 const d = detectLanguageFromCoords(pos.coords.latitude, pos.coords.longitude);
                 setDetected(d);
+                addAvailableLocale(d);
                 setTimeout(() => setPhase("select"), 700);
             },
             (err) => {
@@ -155,7 +151,7 @@ export default function GeoPrompt() {
                             Detected language
                         </h3>
                         <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                            We detected <strong>{prettyName(detected ?? "")}</strong>. You can choose it or pick another.
+                            We detected <strong>{LANGUAGE_NAMES[detected ?? ""] || (detected ?? "")}</strong>. You can choose it or pick another.
                         </p>
                         <div className="mt-6 grid grid-cols-3 gap-2">
                             <button
@@ -177,7 +173,7 @@ export default function GeoPrompt() {
                                 onClick={() => choose(detected ?? "en")}
                                 className="rounded bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 active:bg-blue-800"
                             >
-                                {prettyName(detected ?? "en")}
+                                {LANGUAGE_NAMES[detected ?? "en"] || (detected ?? "en")}
                             </button>
                         </div>
                     </div>

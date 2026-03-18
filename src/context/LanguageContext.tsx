@@ -14,6 +14,19 @@ import pa from "@/locales/pa";
 
 export type Locale = string;
 
+export const LANGUAGE_NAMES: Record<string, string> = {
+    en: "English",
+    hi: "हिंदी",
+    gu: "ગુજરાતી (gu)",
+    mr: "मराठी (mr)",
+    kn: "ಕನ್ನಡ (kn)",
+    ta: "தமிழ் (ta)",
+    ml: "മലയാളം (ml)",
+    te: "తెలుగు (te)",
+    bn: "বাংলা (bn)",
+    pa: "ਪੰਜਾਬੀ (pa)",
+};
+
 const translations: Record<string, Record<string, string>> = {
     en,
     hi,
@@ -30,12 +43,16 @@ const translations: Record<string, Record<string, string>> = {
 interface LanguageContextType {
     locale: Locale;
     setLocale: (locale: Locale) => void;
+    availableLocales: Locale[];
+    addAvailableLocale: (locale: Locale) => void;
     t: (key: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType>({
     locale: "en",
     setLocale: () => { },
+    availableLocales: ["en", "hi"],
+    addAvailableLocale: () => { },
     t: (k) => (en as Record<string, string>)[k] || k,
 });
 
@@ -55,6 +72,26 @@ export function LanguageProvider({
         return "en";
     });
 
+    const [availableLocales, setAvailableLocales] = useState<Locale[]>(() => {
+        const base = ["en", "hi"];
+        if (typeof window !== "undefined") {
+            const saved = localStorage.getItem("lang");
+            if (saved && !base.includes(saved)) {
+                base.push(saved);
+            }
+        }
+        return base;
+    });
+
+    const addAvailableLocale = (l: Locale) => {
+        setAvailableLocales(prev => {
+            if (!prev.includes(l)) {
+                return [...prev, l];
+            }
+            return prev;
+        });
+    };
+
     const setLocale = (l: Locale) => {
         setLocaleState(l);
         try {
@@ -70,7 +107,7 @@ export function LanguageProvider({
     };
 
     return (
-        <LanguageContext.Provider value={{ locale, setLocale, t }}>
+        <LanguageContext.Provider value={{ locale, setLocale, availableLocales, addAvailableLocale, t }}>
             {children}
         </LanguageContext.Provider>
     );
