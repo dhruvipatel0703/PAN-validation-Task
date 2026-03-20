@@ -21,12 +21,22 @@ export default function GeoPrompt() {
     const { setLocale, t, addAvailableLocale } = useLanguage();
     const [phase, setPhase] = useState<"prompt" | "denied" | "checking" | "select" | "done">("prompt");
     const [mounted, setMounted] = useState(false);
+    const [locationDenied, _setLocationDenied] = useState(false);
+
+    const setLocationDenied = (val: boolean) => {
+        _setLocationDenied(val);
+        try {
+            sessionStorage.setItem("location_denied", String(val));
+        } catch { }
+    };
 
     useEffect(() => {
         setMounted(true);
         try {
-            const seen = sessionStorage.getItem("geoprompt_seen");
-            if (seen === "true") {
+            if (sessionStorage.getItem("location_denied") === "true") {
+                _setLocationDenied(true);
+            }
+            if (sessionStorage.getItem("geoprompt_seen") === "true" || sessionStorage.getItem("lang")) {
                 setPhase("done");
             }
         } catch {
@@ -51,20 +61,25 @@ export default function GeoPrompt() {
     const askLocation = () => {
         if (!navigator?.geolocation) {
             setPhase("denied");
+            setLocationDenied(true);
             return;
         }
         setPhase("checking");
         navigator.geolocation.getCurrentPosition(
             (pos) => {
+                setLocationDenied(false);
                 const d = detectLanguageFromCoords(pos.coords.latitude, pos.coords.longitude);
                 setDetected(d);
                 addAvailableLocale(d);
                 setTimeout(() => setPhase("select"), 700);
             },
             (err) => {
+                if (err.code === err.PERMISSION_DENIED) {
+                    alert("Location access is blocked by your browser. Please enable it in your browser settings (usually the lock icon in the URL bar) and try again.");
+                }
                 setPhase("denied");
-            },
-            { timeout: 10000 }
+                setLocationDenied(true);
+            }
         );
     };
 
@@ -79,7 +94,23 @@ export default function GeoPrompt() {
         setPhase("done");
     };
 
-    if (!mounted || phase === "done") return null;
+    if (!mounted) return null;
+    if (phase === "done") {
+        if (locationDenied) {
+            return (
+                <div className="flex w-full items-center justify-between border-b border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800 dark:border-orange-800 dark:bg-orange-900/30 dark:text-orange-200 z-40 relative">
+                    <span>You missed out on automatic regional language detection.</span>
+                    <button
+                        onClick={askLocation}
+                        className="rounded-md border border-orange-300 bg-white px-3 py-1.5 font-medium shadow-sm hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-800 dark:hover:bg-orange-700"
+                    >
+                        Detect Location
+                    </button>
+                </div>
+            );
+        }
+        return null;
+    }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -102,7 +133,10 @@ export default function GeoPrompt() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setPhase("denied")}
+                                onClick={() => {
+                                    setPhase("denied");
+                                    setLocationDenied(true);
+                                }}
                                 className="flex-1 rounded border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-800"
                             >
                                 Choose language

@@ -79,9 +79,22 @@ export function LanguageProvider({
             if (saved && !base.includes(saved)) {
                 base.push(saved);
             }
-            const detected = sessionStorage.getItem("detected_lang");
-            if (detected && !base.includes(detected)) {
-                base.push(detected);
+            try {
+                const detectedLangsStr = sessionStorage.getItem("detected_langs");
+                if (detectedLangsStr) {
+                    const detectedArr = JSON.parse(detectedLangsStr);
+                    if (Array.isArray(detectedArr)) {
+                        detectedArr.forEach(d => {
+                            if (typeof d === "string" && !base.includes(d)) base.push(d);
+                        });
+                    }
+                } else {
+                    const single = sessionStorage.getItem("detected_lang");
+                    if (single && !base.includes(single)) base.push(single);
+                }
+            } catch {
+                const single = sessionStorage.getItem("detected_lang");
+                if (single && !base.includes(single)) base.push(single);
             }
         }
         return base;
@@ -91,7 +104,22 @@ export function LanguageProvider({
         setAvailableLocales(prev => {
             if (!prev.includes(l)) {
                 try {
-                    sessionStorage.setItem("detected_lang", l);
+                    const str = sessionStorage.getItem("detected_langs");
+                    let existing: string[] = [];
+                    if (str) {
+                        try {
+                            existing = JSON.parse(str);
+                            if (!Array.isArray(existing)) existing = [];
+                        } catch {
+                            const old = sessionStorage.getItem("detected_lang");
+                            if (old) existing = [old];
+                        }
+                    } else {
+                        const old = sessionStorage.getItem("detected_lang");
+                        if (old) existing = [old];
+                    }
+                    if (!existing.includes(l)) existing.push(l);
+                    sessionStorage.setItem("detected_langs", JSON.stringify(existing));
                 } catch {
                     // ignore
                 }
